@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+
+'''game rules:
+1. there will be 6 players in total, each player will get 0 life point at the beginning.
+2. each player have to choose a number between 0-100.
+3. the player who choose the closest number to the average of all chosen numbers and multiply by 0.8 will win the round.
+4. the winner point stays same, while loosers will lose -1 life point.
+4. if the point of a player reaches -10, that player will be eliminated.
+5. the last player remaining will be the king of Diamond.
+6. calculation of the game is: target = (num1 + num2 + num3 + num4 + num5 + num6) / numbers of players * 0.8
+   i.e., average = (num1 + num2 + num3 + num4 + num5 + num6) / numbers of players
+   target = average * 0.8
+7. if two players are equally close to the target, both will get -1 life points deducted.
+8. if all players choose the same number, no life points will be deducted.
+9. the game continues until only one player remains.)
+'''
+
+import random
+
+print(__doc__)
+print("=" * 60 + "\n")
+
+life = 0
+
+players = [
+    {'name': 'Master Talha', 'life': life, 'is_bot': False},  # You
+    {'name': 'Master Chisiya', 'life': life, 'is_bot': True},
+    {'name': 'Master Kuzuryu', 'life': life, 'is_bot': True},
+    {'name': 'Master Einstein', 'life': life, 'is_bot': True},
+    {'name': 'Master elon musk', 'life': life, 'is_bot': True},
+    {'name': 'Master tesla', 'life': life, 'is_bot': True},
+]
+round_number = 1
+
+def smart_bot_choice(history, num_players):
+    """
+    Level 1 smart bot:
+    - predicts human behavior
+    - predicts bot behavior
+    - guesses average
+    - guesses target
+    - adds slight randomness (to act human)
+    """
+    # --- 1. HUMAN PREDICTION ---
+    if len(history) == 0:
+        human_prediction = random.randint(40, 60)
+    else:
+        # history entries contain 'human_choice'
+        human_preds = [h.get('human_choice') for h in history if h.get('human_choice') is not None]
+        if human_preds:
+            human_prediction = sum(human_preds) / len(human_preds)
+        else:
+            human_prediction = random.randint(40, 60)
+
+    # --- 2. OTHER BOTS PREDICTION ---
+    bot_prediction = random.randint(40, 60)
+
+    # --- 3. PREDICT TOTAL AVERAGE ---
+    predicted_avg = (human_prediction + bot_prediction * (num_players - 1)) / num_players
+
+    # --- 4. PREDICT TARGET ---
+    ideal_number = predicted_avg * 0.8
+
+    # --- 5. ADD RANDOM HUMAN-LIKE ERROR ---
+    final_choice = ideal_number + random.uniform(-10, 10)
+
+    # keep number in valid range and return integer
+    final_choice = max(0, min(100, final_choice))
+    return round(final_choice)
+
+history = []
+
+while len(players) > 1:
+    print(f"\n--- Round {round_number} ---")
+
+    choices = {}
+    # collect choices for each player (bots use smart_bot_choice, human input validated)
+    for p in players:
+        if p.get("is_bot", False):
+            choices[p["name"]] = smart_bot_choice(history, len(players))
+        else:
+            # human input (Master Talha)
+            while True:
+                try:
+                    val = int(input(f"Enter your number (0-100) for {p['name']}: "))
+                    if 0 <= val <= 100:
+                        choices[p["name"]] = val
+                        break
+                    print("Please enter a number between 0 and 100.")
+                except ValueError:
+                    print("Please enter an integer.")
+
+    print("Choices:")
+    for name in choices:
+        choice = choices[name]
+        print(f" {name}: {choice}")
+
+    print() #blank line before average and target
+    # rule 6: compute average and target
+    average = sum(choices.values()) / len(choices)
+    target = average * 0.8
+    print(f"AVERAGE: {average:.3f}  TARGET (80%): {target:.3f}")
+
+    # rule 8: if all players choose the same number, no life change
+    if len(set(choices.values())) == 1:
+        print("All players chose the same number — no life change this round.")
+        # record history for bots
+        history.append({'human_choice': choices.get('Master Talha'), 'choices': choices, 'target': target})
+        round_number += 1
+        continue
+
+    # compute distances to target
+    distances = {name: abs(num - target) for name, num in choices.items()}
+    min_dist = min(distances.values())
+    # consider ties (exact equality sufficient for integers)
+    winners = [name for name, d in distances.items() if abs(d - min_dist) < 1e-9]
+
+    if len(winners) == 1:
+        winner = winners[0]
+        print(f"Winner of round {round_number}:--{winner}--")
+        # winner stays same, everyone else loses 1 life
+        for p in players:
+            if p["name"] != winner:
+                p["life"] -= 1
+    else:
+        # rule 7: tied players lose 1 life
+        print(f"Tie between: {winners} — tied players lose 1 life.")
+        for p in players:
+            if p["name"] in winners:
+                p["life"] -= 1
+
+    # append history for bots' learning
+    history.append({'human_choice': choices.get('Master Talha'), 'choices': choices, 'target': target})
+
+    # eliminate players who reached -10 or below
+    players = [p for p in players if p["life"] > -10]
+
+    print()
+    print("Life status:")
+    for p in players:
+        print(f" {p['name']}: {p['life']}")
+
+    round_number += 1
+
+if players:
+    print(f"\n🏆 {players[0]['name']} is the King of Diamond ♦! 🏆")
+else:
+    print("\nNo players remain. Game ended.")
