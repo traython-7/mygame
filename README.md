@@ -1,6 +1,7 @@
 # Balance Scale
 
 A terminal based text game written in python.
+
 Author: Talha
 
 How to play:
